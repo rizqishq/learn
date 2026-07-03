@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -134,6 +135,49 @@ func main() {
 			"success": true,
 			"message": "tasks retrieved successfully",
 			"data":    tasks,
+		})
+	})
+
+	http.HandleFunc("GET /task/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"success": false,
+				"message": "Invalid task id",
+			})
+			return
+		}
+
+		query := `
+		SELECT id, title, completed, created_at
+		FROM tasks
+		WHERE id=$1
+		`
+
+		var task Task
+
+		err = db.QueryRow(ctx, query, id).Scan(
+			&task.ID,
+			&task.Title,
+			&task.Completed,
+			&task.CreatedAt,
+		)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "task not found",
+			})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"message": "task retrieved successfully",
+			"data":    task,
 		})
 	})
 
