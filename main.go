@@ -20,6 +20,9 @@ func writeJSON(w http.ResponseWriter, code int, data any) {
 
 func main() {
 	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -99,10 +102,11 @@ func main() {
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
 				"success": false,
-				"message": "failed to retrieve data from database",
+				"message": "failed to retrieve data",
 			})
 			return
 		}
+		defer rows.Close()
 
 		tasks := make([]Task, 0)
 		for rows.Next() {
@@ -120,7 +124,10 @@ func main() {
 		}
 
 		if err := rows.Err(); err != nil {
-			panic(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "failed to retrieve tasks",
+			})
 		}
 
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -137,8 +144,9 @@ func main() {
 		if err := db.Ping(ctx); err != nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 				"success": false,
-				"message": "server is asleep",
+				"message": "database is asleep",
 			})
+			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": true,
@@ -147,5 +155,5 @@ func main() {
 	})
 
 	log.Println("Server running on port :6969")
-	http.ListenAndServe(":6969", nil)
+	log.Fatal(http.ListenAndServe(":6969", nil))
 }

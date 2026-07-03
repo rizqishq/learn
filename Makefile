@@ -8,3 +8,6 @@ migrate-down:
 
 psql:
 	docker exec -it go-postgres psql -U ${DATABASE_USER} -d ${DATABASE_NAME}
+
+run:
+	@go run .

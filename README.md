@@ -1,6 +1,6 @@
 # TINY TASKS API
 
-Simple task management api built with Go while also learning Go.
+Simple task management api built with Go while also learning RESTful API in Go.
 
 ---
 
