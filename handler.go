@@ -244,3 +244,37 @@ func (s *Server) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		"data":    task,
 	})
 }
+
+func (s *Server) deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "invalid task id",
+		})
+		return
+	}
+
+	result, err := s.db.Exec(ctx, "DELETE FROM tasks WHERE id = $1", id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "failed to delete task",
+		})
+		return
+	}
+
+	if result.RowsAffected() == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]any{
+			"success": false,
+			"message": "task not found",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

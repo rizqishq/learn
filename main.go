@@ -43,6 +43,7 @@ func main() {
 	http.HandleFunc("GET /tasks", srv.getTasksHandler)
 	http.HandleFunc("GET /tasks/{id}", srv.getTaskByIDHandler)
 	http.HandleFunc("PATCH /tasks/{id}", srv.updateTaskHandler)
+	http.HandleFunc("DELETE /tasks/{id}", srv.deleteTaskHandler)
 
 	log.Println("Server running on port :6969")
 	log.Fatal(http.ListenAndServe(":6969", nil))
