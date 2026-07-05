@@ -1,0 +1,246 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := s.db.Ping(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"success": false,
+			"message": "database is asleep",
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "server up",
+	})
+}
+
+func (s *Server) createTaskHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	var req CreateTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "failed to read request body",
+		})
+		return
+	}
+
+	if req.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "title can not be empty",
+		})
+		return
+	}
+
+	query := `
+		INSERT INTO tasks (title)
+		VALUES ($1)
+		RETURNING id, title, completed, created_at
+		`
+
+	var task Task
+
+	err := s.db.QueryRow(ctx, query, req.Title).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Completed,
+		&task.CreatedAt,
+	)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "failed to create task",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"success": true,
+		"message": "task saved successfully",
+		"data":    task,
+	})
+}
+
+func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT id, title, completed, created_at
+		FROM tasks
+		ORDER BY id DESC
+		`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "failed to retrieve data",
+		})
+		return
+	}
+	defer rows.Close()
+
+	tasks := make([]Task, 0)
+	for rows.Next() {
+		var t Task
+		err := rows.Scan(&t.ID, &t.Title, &t.Completed, &t.CreatedAt)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "failed to scan data",
+			})
+			return
+		}
+
+		tasks = append(tasks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"success": false,
+			"message": "failed to retrieve tasks",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "tasks retrieved successfully",
+		"data":    tasks,
+	})
+}
+
+func (s *Server) getTaskByIDHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "invalid task id",
+		})
+		return
+	}
+
+	query := `
+		SELECT id, title, completed, created_at
+		FROM tasks
+		WHERE id = $1
+		`
+
+	var task Task
+
+	err = s.db.QueryRow(ctx, query, id).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Completed,
+		&task.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "task not found",
+			})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "operation failed",
+			})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "task retrieved successfully",
+		"data":    task,
+	})
+}
+
+func (s *Server) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "invalid task id",
+		})
+		return
+	}
+
+	var req UpdateTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "invalid request",
+		})
+		return
+	}
+
+	if req.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "title can not be empty",
+		})
+		return
+	}
+
+	query := `
+		UPDATE tasks
+		SET title = $1, completed = $2
+		WHERE id = $3
+		RETURNING id, title, completed, created_at
+		`
+
+	var task Task
+	err = s.db.QueryRow(ctx, query, req.Title, req.Completed, id).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Completed,
+		&task.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]any{
+				"success": false,
+				"message": "task not found",
+			})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "update failed",
+			})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "task updated",
+		"data":    task,
+	})
+}
