@@ -147,7 +147,7 @@ func main() {
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{
 				"success": false,
-				"message": "Invalid task id",
+				"message": "invalid task id",
 			})
 			return
 		}
@@ -177,6 +177,58 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": true,
 			"message": "task retrieved successfully",
+			"data":    task,
+		})
+	})
+
+	http.HandleFunc("PATCH /task/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"success": false,
+				"message": "invalid task id",
+			})
+			return
+		}
+
+		query := `
+		UPDATE tasks
+		SET title = $1, completed = $2
+		WHERE id = $3
+		RETURNING id, title, completed, created_at
+		`
+
+		var req UpdateTaskRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"success": false,
+				"message": "invalid request",
+			})
+			return
+		}
+
+		var task Task
+		err = db.QueryRow(ctx, query, req.Title, req.Completed, id).Scan(
+			&task.ID,
+			&task.Title,
+			&task.Completed,
+			&task.CreatedAt,
+		)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"success": false,
+				"message": "update failed",
+			})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"message": "task updated",
 			"data":    task,
 		})
 	})
