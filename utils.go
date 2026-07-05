@@ -15,9 +15,9 @@ func writeJSON(w http.ResponseWriter, code int, data any) {
 func parseIDParam(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "invalid task id",
+		writeJSON(w, http.StatusBadRequest, Response{
+			Success: false,
+			Message: "invalid task id",
 		})
 		return 0, false
 	}

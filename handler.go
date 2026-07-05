@@ -15,15 +15,15 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := s.db.Ping(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"success": false,
-			"message": "database is asleep",
+		writeJSON(w, http.StatusServiceUnavailable, Response{
+			Success: false,
+			Message: "database is asleep",
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "server up",
+	writeJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: "server up",
 	})
 }
 
@@ -33,17 +33,17 @@ func (s *Server) createTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "failed to read request body",
+		writeJSON(w, http.StatusBadRequest, Response{
+			Success: false,
+			Message: "failed to read request body",
 		})
 		return
 	}
 
 	if req.Title == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "title can not be empty",
+		writeJSON(w, http.StatusBadRequest, Response{
+			Success: false,
+			Message: "title can not be empty",
 		})
 		return
 	}
@@ -63,17 +63,17 @@ func (s *Server) createTaskHandler(w http.ResponseWriter, r *http.Request) {
 		&task.CreatedAt,
 	)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "failed to create task",
+		writeJSON(w, http.StatusInternalServerError, Response{
+			Success: false,
+			Message: "failed to create task",
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"success": true,
-		"message": "task saved successfully",
-		"data":    task,
+	writeJSON(w, http.StatusCreated, Response{
+		Success: true,
+		Message: "task saved successfully",
+		Data:    task,
 	})
 }
 
@@ -89,9 +89,9 @@ func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := s.db.Query(ctx, query)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "failed to retrieve data",
+		writeJSON(w, http.StatusInternalServerError, Response{
+			Success: false,
+			Message: "failed to retrieve data",
 		})
 		return
 	}
@@ -102,9 +102,9 @@ func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var t Task
 		err := rows.Scan(&t.ID, &t.Title, &t.Completed, &t.CreatedAt)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "failed to scan data",
+			writeJSON(w, http.StatusInternalServerError, Response{
+				Success: false,
+				Message: "failed to scan data",
 			})
 			return
 		}
@@ -113,17 +113,17 @@ func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := rows.Err(); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "failed to retrieve tasks",
+		writeJSON(w, http.StatusInternalServerError, Response{
+			Success: false,
+			Message: "failed to retrieve tasks",
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "tasks retrieved successfully",
-		"data":    tasks,
+	writeJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: "tasks retrieved successfully",
+		Data:    tasks,
 	})
 }
 
@@ -152,23 +152,23 @@ func (s *Server) getTaskByIDHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "task not found",
+			writeJSON(w, http.StatusNotFound, Response{
+				Success: false,
+				Message: "task not found",
 			})
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "operation failed",
+			writeJSON(w, http.StatusInternalServerError, Response{
+				Success: false,
+				Message: "operation failed",
 			})
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "task retrieved successfully",
-		"data":    task,
+	writeJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: "task retrieved successfully",
+		Data:    task,
 	})
 }
 
@@ -183,17 +183,17 @@ func (s *Server) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req UpdateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "invalid request",
+		writeJSON(w, http.StatusBadRequest, Response{
+			Success: false,
+			Message: "invalid request",
 		})
 		return
 	}
 
 	if req.Title == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "title can not be empty",
+		writeJSON(w, http.StatusBadRequest, Response{
+			Success: false,
+			Message: "title can not be empty",
 		})
 		return
 	}
@@ -215,23 +215,23 @@ func (s *Server) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]any{
-				"success": false,
-				"message": "task not found",
+			writeJSON(w, http.StatusNotFound, Response{
+				Success: false,
+				Message: "task not found",
 			})
 		} else {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "update failed",
+			writeJSON(w, http.StatusInternalServerError, Response{
+				Success: false,
+				Message: "update failed",
 			})
 		}
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"message": "task updated",
-		"data":    task,
+	writeJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: "task updated",
+		Data:    task,
 	})
 }
 
@@ -246,17 +246,17 @@ func (s *Server) deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.db.Exec(ctx, "DELETE FROM tasks WHERE id = $1", id)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "failed to delete task",
+		writeJSON(w, http.StatusInternalServerError, Response{
+			Success: false,
+			Message: "failed to delete task",
 		})
 		return
 	}
 
 	if result.RowsAffected() == 0 {
-		writeJSON(w, http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "task not found",
+		writeJSON(w, http.StatusNotFound, Response{
+			Success: false,
+			Message: "task not found",
 		})
 		return
 	}

@@ -17,3 +17,9 @@ type UpdateTaskRequest struct {
 	Title     string `json:"title"`
 	Completed bool   `json:"completed"`
 }
+
+type Response struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
