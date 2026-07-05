@@ -11,11 +11,17 @@ git clone https://github.com/rizqishq/tiny-task
 cd tiny-task
 ```
 
-2. Start the server
-```go
-go run main.go
+2. Setup database
+```bash
+docker compose up -d
+make migrate-up
 ```
 
-3. Test API endpoint
+3. Start the server
+```go
+make run
+```
+
+4. Test API endpoint
 
 You can directly open [html documentation](docs/tiny-tasks-documentation.html) file in the browser and test it there.
