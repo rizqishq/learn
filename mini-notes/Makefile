@@ -7,7 +7,7 @@ migrate-down:
 	migrate -path migrations -database $(DATABASE_URL) down 1
 
 psql:
-	docker exec -it tiny-task-db psql -U ${DATABASE_USER} -d ${DATABASE_NAME}
+	docker exec -it mini-notes-db psql -U ${DATABASE_USER} -d ${DATABASE_NAME}
 
 run:
 	@go run .
