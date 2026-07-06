@@ -1,27 +1,32 @@
-# TINY TASKS API
+# Tiny Tasks API
 
-Simple task management api built with Go while also learning RESTful API in Go.
+A simple task management API built with Go.
+
+## Things I learned while building this project
+
+- REST API design in Go
+- PostgreSQL with database/sql + pgx
+- Raw SQL queries and migrations
+- URL path parameter parsing
+- JSON encoding/decoding
 
 ---
 
-## How to run
-1. Clone the repository
-```bash
-git clone https://github.com/rizqishq/tiny-task
-cd tiny-task
-```
+## How to Run
 
-2. Setup database
+1. Set up the database
+
 ```bash
 docker compose up -d
 make migrate-up
 ```
 
-3. Start the server
-```go
+2. Start the server
+
+```bash
 make run
 ```
 
-4. Test API endpoint
+3. Test the API
 
-You can directly open [html documentation](docs/tiny-tasks-documentation.html) file in the browser and test it there.
+Open the [HTML documentation](docs/tiny-tasks-documentation.html) in your browser to try the endpoints.
