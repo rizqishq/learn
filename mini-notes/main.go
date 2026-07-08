@@ -39,6 +39,7 @@ func main() {
 	http.HandleFunc("GET /notes", srv.getAllNotesHandler)
 	http.HandleFunc("GET /notes/{id}", srv.getNoteByIDHandler)
 	http.HandleFunc("PATCH /notes/{id}", srv.updateNoteHandler)
+	http.HandleFunc("DELETE /notes/{id}", srv.deleteNoteHandler)
 
 	log.Println("Server running on port :6767")
 	log.Fatal(http.ListenAndServe(":6767", nil))

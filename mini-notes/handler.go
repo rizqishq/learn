@@ -178,3 +178,31 @@ func (s *Server) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, note)
 }
+
+func (s *Server) deleteNoteHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	query := `
+	DELETE FROM notes
+	WHERE id = $1
+	`
+
+	result, err := s.db.Exec(ctx, query, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete note")
+		return
+	}
+
+	if result.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
