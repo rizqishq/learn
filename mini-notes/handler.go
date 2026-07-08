@@ -137,7 +137,7 @@ func (s *Server) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Title == nil && req.Body == nil {
+	if req.Title == nil && req.Body == nil && req.Archived == nil {
 		writeError(w, http.StatusBadRequest, "no field to update")
 		return
 	}
@@ -153,13 +153,13 @@ func (s *Server) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 	UPDATE notes
-	SET title = COALESCE($1, title), body = COALESCE($2, body), updated_at = NOW()
-	WHERE id = $3
+	SET title = COALESCE($1, title), body = COALESCE($2, body), archived = COALESCE($3, archived), updated_at = NOW()
+	WHERE id = $4
 	RETURNING id, title, body, archived, created_at, updated_at
 	`
 
 	var note Note
-	err = s.db.QueryRow(ctx, query, req.Title, req.Body, id).Scan(
+	err = s.db.QueryRow(ctx, query, req.Title, req.Body, req.Archived, id).Scan(
 		&note.ID,
 		&note.Title,
 		&note.Body,
