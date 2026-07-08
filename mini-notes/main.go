@@ -36,7 +36,7 @@ func main() {
 
 	http.HandleFunc("GET /health", srv.healthHandler)
 	http.HandleFunc("POST /notes", srv.createNoteHandler)
-	http.HandleFunc("GET /notes", srv.getAllNotesHandler)
+	http.HandleFunc("GET /notes", srv.searchNoteHandler)
 	http.HandleFunc("GET /notes/{id}", srv.getNoteByIDHandler)
 	http.HandleFunc("PATCH /notes/{id}", srv.updateNoteHandler)
 	http.HandleFunc("DELETE /notes/{id}", srv.deleteNoteHandler)

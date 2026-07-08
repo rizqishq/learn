@@ -6,6 +6,7 @@ Simple note management API.
 
 - Partial update in Go and Postgres
 - `COALESCE` function in sql
+- More advance sql query in search note feature: ILIKE, wildcard(%), string concat (||), type casting(::bool), etc.
 
 ---
 

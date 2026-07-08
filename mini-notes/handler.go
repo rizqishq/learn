@@ -53,37 +53,6 @@ func (s *Server) createNoteHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, note)
 }
 
-func (s *Server) getAllNotesHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	notes := make([]Note, 0)
-	query := `
-	SELECT id, title, body, archived, created_at, updated_at
-	FROM notes
-	ORDER BY id DESC
-	`
-
-	rows, err := s.db.Query(ctx, query)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get notes")
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var n Note
-		err := rows.Scan(&n.ID, &n.Title, &n.Body, &n.Archived, &n.CreatedAt, &n.UpdatedAt)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to scan note")
-			return
-		}
-		notes = append(notes, n)
-	}
-
-	writeJSON(w, http.StatusOK, notes)
-}
-
 func (s *Server) getNoteByIDHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
@@ -205,4 +174,62 @@ func (s *Server) deleteNoteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) searchNoteHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	q := r.URL.Query().Get("q")
+	archivedParam := r.URL.Query().Get("archived")
+
+	var archived *bool
+	if archivedParam != "" {
+		parsed, err := strconv.ParseBool(archivedParam)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid archived value")
+			return
+		}
+		archived = &parsed
+	}
+
+	query := `
+	SELECT id, title, body, archived, created_at, updated_at
+	FROM notes
+	WHERE ($1 = '' OR title ILIKE '%'||$1||'%' OR body ILIKE '%'||$1||'%')
+		AND ($2::bool IS NULL OR archived = $2)
+	ORDER BY updated_at DESC
+	`
+
+	rows, err := s.db.Query(ctx, query, q, archived)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search failed")
+		return
+	}
+	defer rows.Close()
+
+	notes := make([]Note, 0)
+	for rows.Next() {
+		var note Note
+		err := rows.Scan(
+			&note.ID,
+			&note.Title,
+			&note.Body,
+			&note.Archived,
+			&note.CreatedAt,
+			&note.UpdatedAt,
+		)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read note")
+			return
+		}
+		notes = append(notes, note)
+	}
+
+	if err := rows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read note")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, notes)
 }
