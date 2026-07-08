@@ -142,11 +142,11 @@ func (s *Server) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if *req.Title == "" {
+	if req.Title != nil && *req.Title == "" {
 		writeError(w, http.StatusBadRequest, "title can not be empty")
 		return
 	}
-	if *req.Body == "" {
+	if req.Body != nil && *req.Body == "" {
 		writeError(w, http.StatusBadRequest, "body can not be empty")
 		return
 	}
