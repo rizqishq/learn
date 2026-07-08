@@ -120,3 +120,61 @@ func (s *Server) getNoteByIDHandler(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, note)
 }
+
+func (s *Server) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	var req UpdateNoteRequest
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Title == nil && req.Body == nil {
+		writeError(w, http.StatusBadRequest, "no field to update")
+		return
+	}
+
+	if *req.Title == "" {
+		writeError(w, http.StatusBadRequest, "title can not be empty")
+		return
+	}
+	if *req.Body == "" {
+		writeError(w, http.StatusBadRequest, "body can not be empty")
+		return
+	}
+
+	query := `
+	UPDATE notes
+	SET title = COALESCE($1, title), body = COALESCE($2, body), updated_at = NOW()
+	WHERE id = $3
+	RETURNING id, title, body, archived, created_at, updated_at
+	`
+
+	var note Note
+	err = s.db.QueryRow(ctx, query, req.Title, req.Body, id).Scan(
+		&note.ID,
+		&note.Title,
+		&note.Body,
+		&note.Archived,
+		&note.CreatedAt,
+		&note.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "note not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "update failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, note)
+}
