@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mini-notes - API Documentation</title>
+    <style>
+        body { margin: 0; padding: 0; }
+        #opencollection-container { width: 100vw; height: 100vh; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.opencollection.com/docs.css">
+    <script src="https://cdn.opencollection.com/docs.js"></script>
+</head>
+<body>
+    <div id="opencollection-container"></div>
+    <script>
+        const collectionData = "opencollection: 1.0.0\ninfo:\n  name: mini-notes\nconfig:\n  proxy:\n    inherit: true\n    config:\n      protocol: http\n      hostname: ''\n      port: ''\n      auth:\n        username: ''\n        password: ''\n      bypassProxy: ''\nitems:\n  - info:\n      name: create note\n      type: http\n      seq: 2\n    http:\n      method: POST\n      url: http://localhost:6767/notes\n      body:\n        type: json\n        data: |-\n          {\n            \"title\": \"Abogoboga\",\n            \"body\": \"Testing hwohwhwohowh bwahahaha\"\n          }\n      auth: inherit\n    settings:\n      encodeUrl: true\n      timeout: 0\n      followRedirects: true\n      maxRedirects: 5\n  - info:\n      name: health\n      type: http\n      seq: 1\n    http:\n      method: GET\n      url: http://localhost:6767/health\n      auth: inherit\n    settings:\n      encodeUrl: true\n      timeout: 0\n      followRedirects: true\n      maxRedirects: 5\n  - info:\n      name: update note\n      type: http\n      seq: 3\n    http:\n      method: PATCH\n      url: http://localhost:6767/notes/:id\n      params:\n        - name: id\n          value: '1'\n          type: path\n      body:\n        type: json\n        data: |-\n          {\n            \"archived\": true\n          }\n      auth: inherit\n    settings:\n      encodeUrl: true\n      timeout: 0\n      followRedirects: true\n      maxRedirects: 5\n  - info:\n      name: get all notes\n      type: http\n      seq: 4\n    http:\n      method: GET\n      url: http://localhost:6767/notes\n      auth: inherit\n    settings:\n      encodeUrl: true\n      timeout: 0\n      followRedirects: true\n      maxRedirects: 5\n  - info:\n      name: get note by id\n      type: http\n      seq: 5\n    http:\n      method: GET\n      url: http://localhost:6767/notes/:id\n      params:\n        - name: id\n          value: '1'\n          type: path\n      auth: inherit\n    settings:\n      encodeUrl: true\n      timeout: 0\n      followRedirects: true\n      maxRedirects: 5\nbundled: true\nextensions:\n  bruno:\n    ignore:\n      - node_modules\n      - .git\n    exportedAt: '2026-07-08T09:48:35.221Z'\n    exportedUsing: Bruno/3.5.0\n";
+        new window.OpenCollection({
+            target: document.getElementById('opencollection-container'),
+            opencollection: collectionData,
+            theme: 'light'
+        });
+    </script>
+</body>
+</html>
