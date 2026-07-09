@@ -153,3 +153,69 @@ func (s *Server) deleteAuthorHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (s *Server) createBookHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	var req CreateBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.AuthorID <= 0 {
+		writeError(w, http.StatusBadRequest, "author_id cant be empty")
+		return
+	}
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "title cant be empty")
+		return
+	}
+
+	var authorID int64
+	var authorName string
+	query := `
+	SELECT id, name
+	FROM authors
+	WHERE id = $1
+	`
+	err := s.db.QueryRow(ctx, query, req.AuthorID).Scan(
+		&authorID,
+		&authorName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "author doesnt exist")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to verify author")
+		return
+	}
+
+	query = `
+	INSERT INTO books (author_id, title, description)
+	VALUES ($1, $2, $3)
+	RETURNING id, title, description, status, created_at, updated_at
+	`
+
+	var b Book
+	err = s.db.QueryRow(ctx, query, req.AuthorID, req.Title, req.Title).Scan(
+		&b.ID,
+		&b.Title,
+		&b.Description,
+		&b.Status,
+		&b.CreatedAt,
+		&b.UpdatedAt,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create book")
+		return
+	}
+
+	b.Author = BookAuthor{
+		ID:   authorID,
+		Name: authorName,
+	}
+
+	writeJSON(w, http.StatusCreated, b)
+}
