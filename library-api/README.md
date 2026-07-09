@@ -23,6 +23,3 @@ make migrate-up
 make run
 ```
 
-3. Test Api
-
-Open [HTML documentation](docs/mini-notes-documentation.html) in your browser to try the endpoints.
