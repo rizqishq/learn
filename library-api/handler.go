@@ -172,49 +172,38 @@ func (s *Server) createBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var authorID int64
-	var authorName string
 	query := `
-	SELECT id, name
-	FROM authors
-	WHERE id = $1
-	`
-	err := s.db.QueryRow(ctx, query, req.AuthorID).Scan(
-		&authorID,
-		&authorName,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "author doesnt exist")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to verify author")
-		return
-	}
-
-	query = `
-	INSERT INTO books (author_id, title, description)
-	VALUES ($1, $2, $3)
-	RETURNING id, title, description, status, created_at, updated_at
+		WITH new_book AS (
+			INSERT INTO books (author_id, title, description)
+			VALUES ($1, $2, $3)
+			RETURNING id, author_id, title, description, status, created_at, updated_at
+		)
+		SELECT
+			nb.id, nb.title, nb.description, nb.status, nb.created_at, nb.updated_at,
+			a.id, a.name
+		FROM new_book nb
+		JOIN authors a ON a.id = nb.author_id
 	`
 
 	var b Book
-	err = s.db.QueryRow(ctx, query, req.AuthorID, req.Title, req.Title).Scan(
+	err := s.db.QueryRow(ctx, query, req.AuthorID, req.Title, req.Description).Scan(
 		&b.ID,
 		&b.Title,
 		&b.Description,
 		&b.Status,
 		&b.CreatedAt,
 		&b.UpdatedAt,
+		&b.Author.ID,
+		&b.Author.Name,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			writeError(w, http.StatusBadRequest, "author does not exist")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create book")
 		return
-	}
-
-	b.Author = BookAuthor{
-		ID:   authorID,
-		Name: authorName,
 	}
 
 	writeJSON(w, http.StatusCreated, b)
