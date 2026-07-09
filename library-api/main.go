@@ -38,6 +38,7 @@ func main() {
 	http.HandleFunc("POST /authors", srv.createAuthorHandler)
 	http.HandleFunc("GET /authors", srv.getAllAuthorsHandler)
 	http.HandleFunc("GET /authors/{id}", srv.getAuthorByIdHandler)
+	http.HandleFunc("DELETE /authors/{id}", srv.deleteAuthorHandler)
 
 	log.Println("Server running on port :6767")
 	log.Fatal(http.ListenAndServe(":6767", nil))
