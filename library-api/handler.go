@@ -142,6 +142,11 @@ func (s *Server) deleteAuthorHandler(w http.ResponseWriter, r *http.Request) {
 
 	tag, err := s.db.Exec(ctx, query, id)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23001" {
+			writeError(w, http.StatusConflict, "cannot delete author: still has related books")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to delete author")
 		return
 	}
