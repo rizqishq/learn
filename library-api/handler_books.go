@@ -71,16 +71,38 @@ func (s *Server) getAllBooksHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
+	q := r.URL.Query().Get("q")
+	status := r.URL.Query().Get("status")
+	authorIdStr := r.URL.Query().Get("author_id")
+
+	if status != "" && !validStatus[status] {
+		writeError(w, http.StatusBadRequest, "invalid status")
+		return
+	}
+
+	authorId := 0
+	if authorIdStr != "" {
+		var err error
+		authorId, err = strconv.Atoi(authorIdStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid author id")
+			return
+		}
+	}
+
 	query := `
 	SELECT
-			b.id, b.title, b.description, b.status, b.created_at, b.updated_at,
-			a.id, a.name
+		b.id, b.title, b.description, b.status, b.created_at, b.updated_at,
+		a.id, a.name
 	FROM books b
 	JOIN authors a ON a.id = b.author_id
+	WHERE ($1 = '' OR b.title ILIKE '%' || $1 || '%' OR b.description ILIKE '%' || $1 || '%')
+		AND	($2 = '' OR b.status = $2)
+		AND ($3 = 0 OR b.author_id = $3)
 	ORDER BY b.created_at DESC
 	`
 
-	rows, err := s.db.Query(ctx, query)
+	rows, err := s.db.Query(ctx, query, q, status, authorId)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to fetch books")
 		return
@@ -126,8 +148,8 @@ func (s *Server) getBookByIdHandler(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 	SELECT
-			b.id, b.title, b.description, b.status, b.created_at, b.updated_at,
-			a.id, a.name
+		b.id, b.title, b.description, b.status, b.created_at, b.updated_at,
+		a.id, a.name
 	FROM books b
 	JOIN authors a ON a.id = b.author_id
 	WHERE b.id = $1
