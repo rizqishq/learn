@@ -39,6 +39,9 @@ func main() {
 	http.HandleFunc("GET /categories", srv.listCategoriesHandler)
 	http.HandleFunc("DELETE /categories/{id}", srv.deleteCategoryHandler)
 
+	http.HandleFunc("POST /transactions", srv.createTransactionHandler)
+	http.HandleFunc("GET /transactions", srv.listTransactionsHandler)
+
 	log.Println("Server running on port :6767")
 	log.Fatal(http.ListenAndServe(":6767", nil))
 }
