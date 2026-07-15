@@ -42,6 +42,8 @@ func main() {
 	http.HandleFunc("POST /transactions", srv.createTransactionHandler)
 	http.HandleFunc("GET /transactions", srv.listTransactionsHandler)
 	http.HandleFunc("GET /transactions/{id}", srv.getTransactionByIDHandler)
+	http.HandleFunc("PATCH /transactions/{id}", srv.updateTransactionHandler)
+	http.HandleFunc("DELETE /transactions/{id}", srv.deleteTransactionHandler)
 
 	log.Println("Server running on port :6767")
 	log.Fatal(http.ListenAndServe(":6767", nil))

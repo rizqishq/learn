@@ -14,6 +14,11 @@ import (
 
 const dateLayout = "2006-01-02"
 
+var validTypes = map[string]bool{
+	"income":  true,
+	"expense": true,
+}
+
 func (s *Server) createTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
@@ -29,7 +34,7 @@ func (s *Server) createTransactionHandler(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "type cannot be empty")
 		return
 	}
-	if req.Type != "income" && req.Type != "expense" {
+	if !validTypes[req.Type] {
 		writeError(w, http.StatusBadRequest, "type must be income or expense")
 		return
 	}
@@ -177,4 +182,121 @@ func (s *Server) getTransactionByIDHandler(w http.ResponseWriter, r *http.Reques
 	t.Date = date.Format(dateLayout)
 
 	writeJSON(w, http.StatusOK, t)
+}
+
+func (s *Server) updateTransactionHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	var req UpdateTransactionRequest
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	if req.CategoryID == nil && req.Amount == nil && req.Date == nil && req.Note == nil && req.Type == nil {
+		writeError(w, http.StatusBadRequest, "at least one field is required")
+		return
+	}
+
+	if req.Type != nil && !validTypes[*req.Type] {
+		writeError(w, http.StatusBadRequest, "type must be income or expense")
+		return
+	}
+	if req.Amount != nil && *req.Amount <= 0 {
+		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		return
+	}
+	if req.Date != nil {
+		if _, err := time.Parse(dateLayout, *req.Date); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+			return
+		}
+	}
+
+	query := `
+	WITH updated_tx AS (
+		UPDATE transactions
+		SET
+			category_id = COALESCE($1, category_id),
+			type = COALESCE($2, type),
+			amount = COALESCE($3, amount),
+			note = COALESCE($4, note),
+			date = COALESCE($5, date),
+			updated_at = NOW()
+		WHERE id = $6
+		RETURNING id, category_id, type, amount, note, date, created_at, updated_at
+	)
+	SELECT
+		t.id, t.type, t.amount, t.note, t.date, t.created_at, t.updated_at,
+		c.id, c.name
+	FROM updated_tx t
+	JOIN categories c ON c.id = t.category_id
+	`
+
+	var t Transaction
+	var date time.Time
+	err = s.db.QueryRow(ctx, query, req.CategoryID, req.Type, req.Amount, req.Note, req.Date, id).Scan(
+		&t.ID,
+		&t.Type,
+		&t.Amount,
+		&t.Note,
+		&date,
+		&t.CreatedAt,
+		&t.UpdatedAt,
+		&t.Category.ID,
+		&t.Category.Name,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "transaction not found")
+			return
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			writeError(w, http.StatusNotFound, "category does not exist")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update transaction")
+		return
+	}
+
+	t.Date = date.Format(dateLayout)
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (s *Server) deleteTransactionHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	query := `
+	DELETE FROM transactions
+	WHERE id = $1
+	`
+
+	tag, err := s.db.Exec(ctx, query, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete transaction")
+		return
+	}
+
+	if tag.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "transaction not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
