@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -95,7 +97,7 @@ func (s *Server) listTransactionsHandler(w http.ResponseWriter, r *http.Request)
 		c.id, c.name
 	FROM transactions t
 	JOIN categories c ON c.id = t.category_id
-	ORDER BY t.id
+	ORDER BY t.date DESC, t.id DESC
 	`
 
 	rows, err := s.db.Query(ctx, query)
@@ -129,4 +131,50 @@ func (s *Server) listTransactionsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, transactions)
+}
+
+func (s *Server) getTransactionByIDHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	query := `
+	SELECT
+		t.id, t.type, t.amount, t.note, t.date, t.created_at, t.updated_at,
+		c.id, c.name
+	FROM transactions t
+	JOIN categories c ON c.id = t.category_id
+	WHERE t.id = $1
+	`
+
+	var t Transaction
+	var date time.Time
+	err = s.db.QueryRow(ctx, query, id).Scan(
+		&t.ID,
+		&t.Type,
+		&t.Amount,
+		&t.Note,
+		&date,
+		&t.CreatedAt,
+		&t.UpdatedAt,
+		&t.Category.ID,
+		&t.Category.Name,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "transaction not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to fetch data")
+		return
+	}
+
+	t.Date = date.Format(dateLayout)
+
+	writeJSON(w, http.StatusOK, t)
 }
