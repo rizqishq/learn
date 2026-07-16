@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -96,16 +97,84 @@ func (s *Server) listTransactionsHandler(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
+	typeFilter := r.URL.Query().Get("type")
+	if typeFilter != "" && !validTypes[typeFilter] {
+		writeError(w, http.StatusBadRequest, "invalid type")
+		return
+	}
+
+	categoryIDStr := r.URL.Query().Get("category_id")
+	var categoryID int64
+	if categoryIDStr != "" {
+		id, err := strconv.ParseInt(categoryIDStr, 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid category id")
+			return
+		}
+		categoryID = id
+	}
+
+	startDate := r.URL.Query().Get("start_date")
+	if startDate != "" {
+		if _, err := time.Parse(dateLayout, startDate); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+			return
+		}
+	}
+
+	endDate := r.URL.Query().Get("end_date")
+	if endDate != "" {
+		if _, err := time.Parse(dateLayout, endDate); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+			return
+		}
+	}
+
+	q := r.URL.Query().Get("q")
+
+	conditions := make([]string, 0)
+	args := make([]any, 0)
+
+	if typeFilter != "" {
+		args = append(args, typeFilter)
+		conditions = append(conditions, "t.type = $"+strconv.Itoa(len(args)))
+	}
+
+	if categoryID != 0 {
+		args = append(args, categoryID)
+		conditions = append(conditions, "t.category_id = $"+strconv.Itoa(len(args)))
+	}
+
+	if startDate != "" {
+		args = append(args, startDate)
+		conditions = append(conditions, "t.date >= $"+strconv.Itoa(len(args)))
+	}
+
+	if endDate != "" {
+		args = append(args, endDate)
+		conditions = append(conditions, "t.date <= $"+strconv.Itoa(len(args)))
+	}
+
+	if q != "" {
+		args = append(args, q)
+		conditions = append(conditions, "t.note ILIKE '%' || $"+strconv.Itoa(len(args))+" || '%'")
+	}
+
 	query := `
 	SELECT
 		t.id, t.type, t.amount, t.note, t.date, t.created_at, t.updated_at,
 		c.id, c.name
 	FROM transactions t
 	JOIN categories c ON c.id = t.category_id
-	ORDER BY t.date DESC, t.id DESC
 	`
 
-	rows, err := s.db.Query(ctx, query)
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += " ORDER BY t.date DESC, t.id DESC"
+
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to fetch data")
 		return
