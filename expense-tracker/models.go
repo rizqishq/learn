@@ -43,3 +43,19 @@ type UpdateTransactionRequest struct {
 	Note       *string `json:"note"`
 	Date       *string `json:"date"`
 }
+
+type MonthlySummary struct {
+	Year         int   `json:"year"`
+	Month        int   `json:"month"`
+	TotalIncome  int64 `json:"total_income"`
+	TotalExpense int64 `json:"total_expense"`
+	Balance      int64 `json:"balance"`
+	Count        int   `json:"count"`
+}
+
+type CategorySummary struct {
+	CategoryID   int64  `json:"category_id"`
+	CategoryName string `json:"category_name"`
+	TotalAmount  int64  `json:"total_amount"`
+	Count        int    `json:"count"`
+}
