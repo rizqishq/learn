@@ -143,3 +143,30 @@ func (s *Server) categorySummaryHandler(w http.ResponseWriter, r *http.Request) 
 
 	writeJSON(w, http.StatusOK, summaries)
 }
+
+func (s *Server) balanceHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	query := `
+	SELECT
+		COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS total_income,
+		COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expense,
+		COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0)
+		- COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS balance
+	FROM transactions
+	`
+
+	var b BalanceSummary
+	err := s.db.QueryRow(ctx, query).Scan(
+		&b.TotalIncome,
+		&b.TotalExpense,
+		&b.Balance,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to fetch data")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, b)
+}

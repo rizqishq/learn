@@ -47,6 +47,7 @@ func main() {
 
 	http.HandleFunc("GET /summary/monthly", srv.monthlySummaryHandler)
 	http.HandleFunc("GET /summary/categories", srv.categorySummaryHandler)
+	http.HandleFunc("GET /summary/balance", srv.balanceHandler)
 
 	log.Println("Server running on port :6767")
 	log.Fatal(http.ListenAndServe(":6767", nil))
